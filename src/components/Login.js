@@ -1,5 +1,6 @@
 import React, { Component } from 'react'
 import { GC_USER_ID, GC_AUTH_TOKEN } from '../constants'
+import { gql, graphql, compose } from 'react-apollo'
 
 class Login extends Component {
 
@@ -7,7 +8,6 @@ class Login extends Component {
     login: true, // switch between Login and SignUp
     email: '',
     password: '',
-    name: ''
   }
 
   render() {
@@ -54,9 +54,31 @@ class Login extends Component {
     )
   }
 
-  _confirm = async () => {
-    // ... you'll implement this in a bit
+_confirm = async () => {
+  const { name, email, password } = this.state
+  if (this.state.login) {
+    const result = await this.props.signinUserMutation({
+      variables: {
+        email,
+        password
+      }
+    })
+    const id = result.data.signinUser.user.id
+    const token = result.data.signinUser.token
+    this._saveUserData(id, token)
+  } else {
+    const result = await this.props.createUserMutation({
+      variables: {
+        email,
+        password
+      }
+    })
+    const id = result.data.signinUser.user.id
+    const token = result.data.signinUser.token
+    this._saveUserData(id, token)
   }
+  this.props.history.push(`/`)
+}
 
   _saveUserData = (id, token) => {
     localStorage.setItem(GC_USER_ID, id)
@@ -65,4 +87,46 @@ class Login extends Component {
 
 }
 
-export default Login
+const CREATE_USER_MUTATION = gql`
+  mutation CreateUserMutation($email: String!, $password: String!) {
+    createUser(
+      authProvider: {
+        email: {
+          email: $email,
+          password: $password
+        }
+      }
+    ) {
+      id
+    }
+
+    signinUser(email: {
+      email: $email,
+      password: $password
+    }) {
+      token
+      user {
+        id
+      }
+    }
+  }
+`
+
+const SIGNIN_USER_MUTATION = gql`
+  mutation SigninUserMutation($email: String!, $password: String!) {
+    signinUser(email: {
+      email: $email,
+      password: $password
+    }) {
+      token
+      user {
+        id
+      }
+    }
+  }
+`
+
+export default compose(
+  graphql(CREATE_USER_MUTATION, { name: 'createUserMutation' }),
+  graphql(SIGNIN_USER_MUTATION, { name: 'signinUserMutation' })
+)(Login)
